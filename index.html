@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Management System</title>
+    <style>
+        body { font-family: Arial; background: #f3f3f3; padding: 20px; }
+        h2 { text-align: center; }
+        .box { background: white; padding: 20px; width: 550px; margin: 20px auto; border-radius: 8px; }
+        input, button { width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }
+        button { background: #333; color: white; border: none; cursor: pointer; }
+        .message { font-size: 0.9em; color: red; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid black; padding: 8px; text-align: center; }
+        .hidden { display: none; }
+        .link { text-decoration: underline; color: blue; cursor: pointer; margin-top: 5px; display: inline-block; }
+    </style>
+</head>
+<body>
+
+<h2>Student Management System</h2>
+
+<div id="authSection">
+    <div class="box" id="registerBox">
+        <h3>Register</h3>
+        <input type="text" id="regUsername" placeholder="Username">
+        <input type="password" id="regPassword" placeholder="Password">
+        <button onclick="registerUser()">Register</button>
+        <p class="message" id="regMessage"></p>
+        <span class="link" onclick="showLogin()">Already have an account? Login</span>
+    </div>
+
+    <div class="box hidden" id="loginBox">
+        <h3>Login</h3>
+        <input type="text" id="loginUsername" placeholder="Username">
+        <input type="password" id="loginPassword" placeholder="Password">
+        <button onclick="loginUser()">Login</button>
+        <p class="message" id="loginMessage"></p>
+        <span class="link" onclick="showRegister()">Don't have an account? Register</span>
+    </div>
+</div>
+
+<div id="studentSection" class="hidden">
+
+    <!-- Add Student -->
+    <div class="box">
+        <h3>Add Student</h3>
+        <input id="roll" placeholder="Roll Number">
+        <input id="name" placeholder="Student Name">
+        <input id="marks" placeholder="Marks (Math:95, Physics:90)">
+        <button onclick="addStudent()">Add</button>
+        <p class="message" id="addMsg"></p>
+    </div>
+
+    <!-- Update Student -->
+    <div class="box">
+        <h3>Update Student</h3>
+        <input id="updateRoll" placeholder="Roll Number">
+        <input id="updateName" placeholder="New Name (optional)">
+        <input id="updateMarks" placeholder="New Marks (optional, Math:95, Physics:90)">
+        <button onclick="updateStudent()">Update</button>
+        <p class="message" id="updateMsg"></p>
+    </div>
+
+    <!-- Search Student -->
+    <div class="box">
+        <h3>Search Student</h3>
+        <input id="searchRoll" placeholder="Roll Number">
+        <button onclick="searchStudent()">Search</button>
+        <p class="message" id="searchMsg"></p>
+    </div>
+
+    <!-- Show All Students -->
+    <div class="box">
+        <h3>Show All Students</h3>
+        <button onclick="showStudents()">Show All</button>
+        <table id="studentTable" class="hidden">
+            <thead>
+                <tr>
+                    <th>Roll</th><th>Name</th><th>Marks</th><th>Total</th><th>Percentage</th><th>Grade</th><th>CGPA</th><th>Delete</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <!-- Logout -->
+    <div class="box">
+        <button onclick="logout()">Logout</button>
+    </div>
+
+</div>
+
+<script>
+const BASE_URL = "http://localhost:5000";
+
+// ----------- AUTH SECTION -----------
+function showRegister(){ document.getElementById("loginBox").classList.add("hidden"); document.getElementById("registerBox").classList.remove("hidden"); }
+function showLogin(){ document.getElementById("registerBox").classList.add("hidden"); document.getElementById("loginBox").classList.remove("hidden"); }
+
+function registerUser(){
+    const username = document.getElementById("regUsername").value.trim();
+    const password = document.getElementById("regPassword").value.trim();
+    const msg = document.getElementById("regMessage");
+    if(!username || !password){ msg.innerText="Username and password required"; return; }
+    fetch(`${BASE_URL}/register`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({username,password})
+    }).then(res=>res.json())
+    .then(data=>{
+        if(data.message){ msg.style.color="green"; msg.innerText=data.message+" Login now"; showLogin(); }
+        else{ msg.style.color="red"; msg.innerText=data.error; }
+    });
+}
+
+function loginUser(){
+    const username = document.getElementById("loginUsername").value.trim();
+    const password = document.getElementById("loginPassword").value.trim();
+    const msg = document.getElementById("loginMessage");
+    if(!username || !password){ msg.innerText="Username and password required"; return; }
+    fetch(`${BASE_URL}/login`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({username,password})
+    }).then(res=>res.json())
+    .then(data=>{
+        if(data.success){
+            localStorage.setItem("username",username);
+            document.getElementById("authSection").classList.add("hidden");
+            document.getElementById("studentSection").classList.remove("hidden");
+            showStudents();
+        } else { msg.innerText=data.error; }
+    });
+}
+
+function logout(){
+    localStorage.removeItem("username");
+    document.getElementById("studentSection").classList.add("hidden");
+    document.getElementById("authSection").classList.remove("hidden");
+}
+
+// ----------- STUDENT FUNCTIONS -----------
+function parseMarks(input){
+    const obj={};
+    input.split(",").forEach(p=>{
+        const [sub,mark]=p.split(":");
+        if(sub && mark && !isNaN(Number(mark.trim()))) obj[sub.trim()]=Number(mark.trim());
+    });
+    return obj;
+}
+
+function addStudent(){
+    const roll=document.getElementById("roll").value.trim();
+    const name=document.getElementById("name").value.trim();
+    const marks=parseMarks(document.getElementById("marks").value);
+    const msg=document.getElementById("addMsg");
+    if(!roll || !name){ msg.innerText="Roll and Name required"; return; }
+    fetch(`${BASE_URL}/add`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({roll,name,marks})
+    }).then(res=>res.json())
+    .then(data=>{
+        msg.innerText=data.message||data.error;
+        showStudents();
+    });
+}
+
+function updateStudent(){
+    const roll = document.getElementById("updateRoll").value.trim();
+    const name = document.getElementById("updateName").value.trim();
+    const marks = parseMarks(document.getElementById("updateMarks").value);
+    const msg = document.getElementById("updateMsg");
+    if(!roll){ msg.innerText="Roll number required"; return; }
+    const body = {};
+    if(name) body.name = name;
+    if(Object.keys(marks).length>0) body.marks = marks;
+    fetch(`${BASE_URL}/update/${roll}`,{
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify(body)
+    }).then(res=>res.json())
+    .then(data=>{
+        msg.innerText=data.message||data.error;
+        showStudents();
+    });
+}
+
+function showStudents(){
+    fetch(`${BASE_URL}/show`)
+    .then(res=>res.json())
+    .then(data=>{
+        const tbody=document.getElementById("tableBody");
+        tbody.innerHTML="";
+        data.forEach(stu=>{
+            const marksStr=Object.entries(stu.marks).map(([k,v])=>`${k}:${v}`).join(", ");
+            tbody.innerHTML+=`<tr>
+                <td>${stu.roll}</td><td>${stu.name}</td><td>${marksStr}</td>
+                <td>${stu.total_marks}</td><td>${stu.percentage}%</td><td>${stu.grade}</td><td>${stu.cgpa}</td>
+                <td><button onclick="deleteStudent('${stu.roll}')">Delete</button></td>
+            </tr>`;
+        });
+        document.getElementById("studentTable").classList.toggle("hidden", data.length===0);
+    });
+}
+
+function searchStudent(){
+    const roll=document.getElementById("searchRoll").value.trim();
+    const msg=document.getElementById("searchMsg");
+    if(!roll){ msg.innerText="Enter Roll number"; return; }
+    fetch(`${BASE_URL}/search/${roll}`).then(res=>res.json()).then(data=>{
+        if(data.error){ msg.innerText=data.error; }
+        else{
+            const marksStr=Object.entries(data.marks).map(([k,v])=>`${k}:${v}`).join(", ");
+            msg.innerText=`Roll:${data.roll}, Name:${data.name}, Marks:${marksStr}, Total:${data.total_marks}, %:${data.percentage}, Grade:${data.grade}, CGPA:${data.cgpa}`;
+        }
+    });
+}
+
+function deleteStudent(roll){
+    fetch(`${BASE_URL}/delete/${roll}`, {method:"DELETE"})
+    .then(res=>res.json())
+    .then(data=>{ showStudents(); });
+}
+
+// Auto-login if already logged
+if(localStorage.getItem("username")){
+    document.getElementById("authSection").classList.add("hidden");
+    document.getElementById("studentSection").classList.remove("hidden");
+    showStudents();
+}
+</script>
+
+</body>
+</html>
+
+
+
+
